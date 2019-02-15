@@ -39,23 +39,59 @@ from statsmodels.tsa.seasonal import seasonal_decompose
 #mydb = client["eia_db"]
 
 
-app.config["MONGO_URI"] = "mongodb://localhost:27017/"
-mongo = PyMongo(app)
+app = Flask(__name__)
 
+# app.config["MONGO_URI"] = "mongodb://localhost:27017/"
+# mongo = PyMongo(app)
+# app = Flask(__name__)
 
-df=pd.read_csv("clean_data.csv")
+# app.config["EIA_DATA"] = pd.read_csv("clean_data.csv")
+# data=pd.read_csv(app)
+
+raw_df=pd.read_csv("clean_data.csv")
+
+@app.route("/")
+def index():
+    print(raw_df)
+    return render_template("index.html", raw_df=raw_df)
 
 def model(day):
     # day= **calculate # months from last day in data set
-    results.predict(548,day)
+    day=700
+    # results.predict(548,day)
+    model=sm.tsa.statespace.SARIMAX(raw_df["Total Primary Energy Consumption, Monthly (Trillion Btu)"],order=(1,1,1), seasonal_order=(2,1,1,12))
+    results=model.fit()
+    predictions = raw_df["Forecast"].tail(49)
+    future_dates=[raw_df.index[-1]+DateOffset(months=x) for x in range (0,500)]
+    futures_datest_df=pd.DataFrame(index=future_dates[1:], columns=raw_df.columns)
+    future_df=pd.concat([raw_df, futures_datest_df])
+    future_df["Forecast"]=results.predict(start= 548, end= day, dynamic=True)
     # build the model -- mostly the same code as othe file, without print statements and plots
     return predictions
 
-@app.route("/model", method="POST")
+
+
+@app.route("/model", methods=["POST", "GET"])
 def forecast():
     day=request.form["day"]
     model(day)
-
-    return jsonify(predictions)
+    return render_template("form.html")
+    # return jsonify(predictions)
     
 
+
+
+
+
+# @app.route('/upload', methods=['GET', 'POST'])
+# def upload():
+#     if request.method == 'POST':
+#         df = pd.read_csv(request.files.get('clean_data.csv'))
+#         return render_template('form.html', shape=df.shape)
+#     return render_template('form.html')
+
+
+if __name__ == "__main__":
+    app.run(debug=True)
+
+    
