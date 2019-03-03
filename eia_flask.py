@@ -34,7 +34,7 @@ import plotly
 from plotly.plotly import plot_mpl
 plotly.tools.set_credentials_file(username='cvavoulis', api_key='idvhBcrfyB7GaC6jqdr8')
 from statsmodels.tsa.seasonal import seasonal_decompose
-
+from pandas.tseries.offsets import DateOffset
 #client = pymongo.MongoClient("mongodb://localhost:27017/")
 #mydb = client["eia_db"]
 
@@ -61,11 +61,13 @@ def model(day):
     # results.predict(548,day)
     model=sm.tsa.statespace.SARIMAX(raw_df["Total Primary Energy Consumption, Monthly (Trillion Btu)"],order=(1,1,1), seasonal_order=(2,1,1,12))
     results=model.fit()
-    predictions = raw_df["Forecast"].tail(49)
-    future_dates=[raw_df.index[-1]+DateOffset(months=x) for x in range (0,500)]
+    # predictions = raw_df["Forecast"].tail(49)
+    actual = raw_df["Total Primary Energy Consumption, Monthly (Trillion Btu)"][500:]
+    future_dates=[raw_df.index[-1] + DateOffset(months=x) for x in range (0,500)]
     futures_datest_df=pd.DataFrame(index=future_dates[1:], columns=raw_df.columns)
     future_df=pd.concat([raw_df, futures_datest_df])
-    future_df["Forecast"]=results.predict(start= 548, end= day, dynamic=True)
+    predictions=results.predict(start= 548, end= day, dynamic=True)
+    # future_df["Forecast"]=results.predict(start= 548, end= day, dynamic=True)
     # build the model -- mostly the same code as othe file, without print statements and plots
     return predictions
 
@@ -73,8 +75,11 @@ def model(day):
 
 @app.route("/model", methods=["POST", "GET"])
 def forecast():
-    day=request.form["day"]
-    model(day)
+    if request.method=="POST":
+        day=request.form["day"]
+        print(day)
+        model(day)
+        return redirect("/", code=302)
     return render_template("form.html")
     # return jsonify(predictions)
     
